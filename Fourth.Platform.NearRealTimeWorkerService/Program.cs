@@ -1,10 +1,28 @@
-using Fourth.Platform.NearRealTimeWorkerService;
+using Coravel;
+using Fourth.Platform.RealTimeWorkerService;
 
-IHost host = Host.CreateDefaultBuilder(args)
-    .ConfigureServices(services =>
+public class Program
+{
+    public static void Main(string[] args)
     {
-        services.AddHostedService<Worker>();
-    })
-    .Build();
 
-await host.RunAsync();
+        var host = CreateHostBuilder(args).Build();
+        host.Services.UseScheduler(scheduler => {
+            scheduler
+                .Schedule<GetSalesJobService>()
+                .EveryFiveSeconds();
+        });
+        host.Run();
+
+    }
+
+
+    public static IHostBuilder CreateHostBuilder(string[] args) =>
+        Host.CreateDefaultBuilder(args)
+            .ConfigureServices(services =>
+            {
+                services.AddScheduler();
+                services.AddTransient<GetSalesJobService>();
+                services.AddHostedService<Worker>();
+            });
+}
