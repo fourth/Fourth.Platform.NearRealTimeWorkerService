@@ -62,7 +62,7 @@ namespace Fourth.Platform.RealTimeWorkerService
                     foreach (EventData eventData in eventBatch)
                     {
                         byte[] eventBodyBytes = eventData.EventBody.ToArray();
-                        Console.WriteLine($"Read event of length { eventBodyBytes.Length } from { firstPartition }");
+                        Console.WriteLine($"Read event of length { eventBodyBytes.Length } from { partition }");
                     }
                 }
             }
