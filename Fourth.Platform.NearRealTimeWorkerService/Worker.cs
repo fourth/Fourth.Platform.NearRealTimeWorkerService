@@ -33,16 +33,16 @@ namespace Fourth.Platform.RealTimeWorkerService
             Transaction trans = new Transaction();
             var data = JsonConvert.SerializeObject(trans);
 
-            string[] firstPartition;
+            string[] partition;
 
             await using (var consumer = new EventHubConsumerClient(consumerGroup, connectionString, eventHubName))
             {
-                firstPartition = (await consumer.GetPartitionIdsAsync());
+                partition = (await consumer.GetPartitionIdsAsync());
             }
 
             var receiver = new PartitionReceiver(
                 consumerGroup,
-                firstPartition[1],
+                partition[1],
                 EventPosition.Earliest,
                 connectionString,
                 eventHubName);
