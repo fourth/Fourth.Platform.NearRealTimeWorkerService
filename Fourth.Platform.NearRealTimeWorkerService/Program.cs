@@ -7,11 +7,11 @@ public class Program
     {
 
         var host = CreateHostBuilder(args).Build();
-        host.Services.UseScheduler(scheduler => {
-            scheduler
-                .Schedule<GetSalesJobService>()
-                .EveryFiveSeconds();
-        });
+        //host.Services.UseScheduler(scheduler => {
+        //    scheduler
+        //        .Schedule<GetSalesJobService>()
+        //        .EveryFiveSeconds();
+        //});
         host.Run();
 
     }
@@ -22,7 +22,7 @@ public class Program
             .ConfigureServices(services =>
             {
                 services.AddScheduler();
-                services.AddTransient<GetSalesJobService>();
+               // services.AddTransient<GetSalesJobService>();
                 services.AddHostedService<Worker>();
             });
 }

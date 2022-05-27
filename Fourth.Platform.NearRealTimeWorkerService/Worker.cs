@@ -5,6 +5,7 @@ using Azure.Messaging.EventHubs.Producer;
 using Fourth.Platform.RealTimeWorkerService.Model;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,26 +22,27 @@ namespace Fourth.Platform.RealTimeWorkerService
         public Worker(ILogger<Worker> logger)
         {
             _logger = logger;
-        } 
+        }
 
         public override async Task StartAsync(CancellationToken cancellationToken)
         {
-            var consumer = new EventHubConsumerClient(consumerGroup,connectionString,eventHubName);
 
             using CancellationTokenSource cancellationSource = new CancellationTokenSource();
-            cancellationSource.CancelAfter(TimeSpan.FromSeconds(30));
+            cancellationSource.CancelAfter(TimeSpan.FromSeconds(250));
 
+            Transaction trans = new Transaction();
+            var data = JsonConvert.SerializeObject(trans);
 
-            string firstPartition;
+            string[] firstPartition;
 
-            await using (var producer = new EventHubProducerClient(connectionString, eventHubName))
+            await using (var consumer = new EventHubConsumerClient(consumerGroup, connectionString, eventHubName))
             {
-                firstPartition = (await producer.GetPartitionIdsAsync()).First();
+                firstPartition = (await consumer.GetPartitionIdsAsync());
             }
 
             var receiver = new PartitionReceiver(
                 consumerGroup,
-                firstPartition,
+                firstPartition[1],
                 EventPosition.Earliest,
                 connectionString,
                 eventHubName);
@@ -71,7 +73,7 @@ namespace Fourth.Platform.RealTimeWorkerService
             }
             finally
             {
-                await receiver.CloseAsync();
+                await receiver.CloseAsync(cancellationToken);
             }
         }
 
@@ -88,7 +90,6 @@ namespace Fourth.Platform.RealTimeWorkerService
                 await Task.Delay(1000, stoppingToken);
             }
 
-            //todo GetSales
         }
 
         public async Task GetSales()
