@@ -20,7 +20,7 @@ namespace Fourth.Platform.RealTimeWorkerService
         public Worker(ILogger<Worker> logger)
         {
             _logger = logger;
-        }
+        } 
 
         public override async Task StartAsync(CancellationToken cancellationToken)
         {
