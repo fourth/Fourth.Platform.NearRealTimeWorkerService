@@ -1,5 +1,6 @@
 using Azure.Messaging.EventHubs;
 using Azure.Messaging.EventHubs.Consumer;
+using Azure.Messaging.EventHubs.Primitives;
 using Azure.Messaging.EventHubs.Producer;
 using Fourth.Platform.RealTimeWorkerService.Model;
 using Microsoft.Extensions.Hosting;
@@ -24,31 +25,53 @@ namespace Fourth.Platform.RealTimeWorkerService
 
         public override async Task StartAsync(CancellationToken cancellationToken)
         {
+            var consumer = new EventHubConsumerClient(consumerGroup,connectionString,eventHubName);
+
+            using CancellationTokenSource cancellationSource = new CancellationTokenSource();
+            cancellationSource.CancelAfter(TimeSpan.FromSeconds(30));
+
+
+            string firstPartition;
+
+            await using (var producer = new EventHubProducerClient(connectionString, eventHubName))
+            {
+                firstPartition = (await producer.GetPartitionIdsAsync()).First();
+            }
+
+            var receiver = new PartitionReceiver(
+                consumerGroup,
+                firstPartition,
+                EventPosition.Earliest,
+                connectionString,
+                eventHubName);
+
             try
             {
-                await using (var consumer = new EventHubConsumerClient(consumerGroup, connectionString, eventHubName))
+                while (!cancellationSource.IsCancellationRequested)
                 {
-                    EventPosition startingPosition = EventPosition.Earliest;
-                    string partitionId = (await consumer.GetPartitionIdsAsync()).First();
+                    int batchSize = 50;
+                    TimeSpan waitTime = TimeSpan.FromSeconds(1);
 
-                    using var cancellationSource = new CancellationTokenSource();
-                    cancellationSource.CancelAfter(TimeSpan.FromSeconds(45));
+                    IEnumerable<EventData> eventBatch = await receiver.ReceiveBatchAsync(
+                        batchSize,
+                        waitTime,
+                        cancellationSource.Token);
 
-                    await foreach (PartitionEvent receivedEvent in consumer.ReadEventsAsync(cancellationSource.Token))
+                    foreach (EventData eventData in eventBatch)
                     {
-                        // At this point, the loop will wait for events to be available in the Event Hub.  When an event
-                        // is available, the loop will iterate with the event that was received.  Because we did not
-                        // specify a maximum wait time, the loop will wait forever unless cancellation is requested using
-                        // the cancellation token.
+                        byte[] eventBodyBytes = eventData.EventBody.ToArray();
+                        Console.WriteLine($"Read event of length { eventBodyBytes.Length } from { firstPartition }");
                     }
                 }
-
-                await base.StartAsync(cancellationToken);
             }
-            catch (EventHubsException ex) when
-                (ex.Reason == EventHubsException.FailureReason.ConsumerDisconnected)
+            catch (TaskCanceledException)
             {
-                // Take action based on a consumer being disconnected
+                // This is expected if the cancellation token is
+                // signaled.
+            }
+            finally
+            {
+                await receiver.CloseAsync();
             }
         }
 
