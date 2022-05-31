@@ -7,7 +7,7 @@ using Microsoft.Extensions.Configuration;
 public class Program
 {
 
-    public const string DefaultConnection = "Server=realtimewidgets.database.windows.net;Database=widgetsdata;uid=widgetadmin;password=cJzCndnf5sR45BDrLM;";
+    public const string DefaultConnection = "";
 
     public static void Main(string[] args)
     {
