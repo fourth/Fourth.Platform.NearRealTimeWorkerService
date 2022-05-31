@@ -6,9 +6,6 @@ using Microsoft.Extensions.Configuration;
 
 public class Program
 {
-
-    public const string DefaultConnection = "";
-
     public static void Main(string[] args)
     {
         var host = CreateHostBuilder(args).Build();
