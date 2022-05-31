@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Fourth.Platform.RealTimeWorkerService.Model
 {
-    public class Transaction
+    public class Transact
     {
         public string Id { get; set; }
         public string PartitionKey { get; set; }

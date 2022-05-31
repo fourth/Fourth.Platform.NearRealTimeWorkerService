@@ -1,14 +1,9 @@
-using Azure.Messaging.EventHubs;
 using Azure.Messaging.EventHubs.Consumer;
-using Azure.Messaging.EventHubs.Primitives;
-using Azure.Messaging.EventHubs.Producer;
+using Fourth.Platform.NearRealTimeWorkerService.Data;
+using Fourth.Platform.NearRealTimeWorkerService.Services;
 using Fourth.Platform.RealTimeWorkerService.Model;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using System;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Text;
 
 namespace Fourth.Platform.RealTimeWorkerService
 {
@@ -17,63 +12,42 @@ namespace Fourth.Platform.RealTimeWorkerService
         private readonly ILogger<Worker> _logger;
         private const string connectionString = "Endpoint=sb://fourthpoc.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=82VlwEsVjhf7Sg1GAO2YAwtbw/RPtu3g/KK8Kg4tEu0=";
         private const string eventHubName = "realtime";
+        private const string storageConnectionString = "server=realtimewidgets.database.windows.net;database=widgetsdata;uid=widgetadmin;password=cJzCndnf5sR45BDrLM;";
+        private const string blobContainerName = "<< NAME OF THE BLOBS CONTAINER >>";
         string consumerGroup = EventHubConsumerClient.DefaultConsumerGroupName;
+        private readonly DbHelper dbHelper;
 
-        public Worker(ILogger<Worker> logger)
+        public Worker(ILogger<Worker> logger, ModelContext context)
         {
             _logger = logger;
+            dbHelper = new DbHelper();
         }
 
         public override async Task StartAsync(CancellationToken cancellationToken)
         {
-
             using CancellationTokenSource cancellationSource = new CancellationTokenSource();
-            cancellationSource.CancelAfter(TimeSpan.FromSeconds(250));
-
-            Transaction trans = new Transaction();
-            var data = JsonConvert.SerializeObject(trans);
-
-            string[] partition;
-
-            await using (var consumer = new EventHubConsumerClient(consumerGroup, connectionString, eventHubName))
-            {
-                partition = (await consumer.GetPartitionIdsAsync());
-            }
-
-            var receiver = new PartitionReceiver(
-                consumerGroup,
-                partition[1],
-                EventPosition.Earliest,
-                connectionString,
-                eventHubName);
+            cancellationSource.CancelAfter(TimeSpan.FromSeconds(300));
 
             try
             {
-                while (!cancellationSource.IsCancellationRequested)
+                await using (var consumer = new EventHubConsumerClient(consumerGroup, connectionString, eventHubName))
                 {
-                    int batchSize = 50;
-                    TimeSpan waitTime = TimeSpan.FromSeconds(1);
-
-                    IEnumerable<EventData> eventBatch = await receiver.ReceiveBatchAsync(
-                        batchSize,
-                        waitTime,
-                        cancellationSource.Token);
-
-                    foreach (EventData eventData in eventBatch)
+                    await foreach (PartitionEvent receivedEvent in consumer.ReadEventsAsync(cancellationSource.Token))
                     {
-                        byte[] eventBodyBytes = eventData.EventBody.ToArray();
-                        Console.WriteLine($"Read event of length { eventBodyBytes.Length } from { partition }");
+                        var dataAsJson = Encoding.UTF8.GetString(receivedEvent.Data.Body.ToArray());
+                        var transactionData = JsonConvert.DeserializeObject<Transact>(dataAsJson);
+                        if (transactionData != null)
+                            dbHelper.SaveTransaction(transactionData);
+                        else
+                            _logger.LogInformation($"Empty transaction");
                     }
                 }
             }
+
             catch (TaskCanceledException)
             {
                 // This is expected if the cancellation token is
                 // signaled.
-            }
-            finally
-            {
-                await receiver.CloseAsync(cancellationToken);
             }
         }
 
@@ -90,11 +64,6 @@ namespace Fourth.Platform.RealTimeWorkerService
                 await Task.Delay(1000, stoppingToken);
             }
 
-        }
-
-        public async Task GetSales()
-        {
-            //todo GetSales
         }
 
         public override void Dispose()
